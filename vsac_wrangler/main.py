@@ -20,7 +20,7 @@ import pandas as pd
 from vsac_wrangler.config import CACHE_DIR, OUTPUT_DIR, PROJECT_ROOT
 from vsac_wrangler.definitions.constants import FHIR_JSON_TEMPLATE
 from vsac_wrangler.google_sheets import get_sheets_data
-from vsac_wrangler.vsac_api import get_ticket_granting_ticket, get_value_sets
+from vsac_wrangler.vsac_api import get_value_sets
 
 # USER1: This is an actual ID to a valid user in palantir, who works on our BIDS team.
 PALANTIR_ENCLAVE_USER_ID_1 = 'a39723f3-dc9c-48ce-90ff-06891c29114f'
@@ -179,7 +179,51 @@ def get_vsac_csv(
 
     return df
 
+def extract_from_vsac_for_palantir(value_sets: List[OrderedDict]) -> Dict[str, pd.DataFrame]:
+    for value_set in value_sets:
+        # will let palantir verify ID is indeed unique:
+        oid__codeset_id_map[value_set['@ID']] = randint(0, 1000000000)
+        for concept_dict in value_set['ns0:ConceptList']['ns0:Concept']:
+            code = concept_dict['@code']
+            code_system = concept_dict['@codeSystemName']
+            if code_system not in codesystem_code__concept_id_map:
+                codesystem_code__concept_id_map[code_system] = {}
+            # will let palantir verify ID is indeed unique:
+            codesystem_code__concept_id_map[code_system][code] = randint(0, 1000000000)
 
+    # 1. Palantir enclave table: concept_set_version_item_rv_edited
+    #       this stuff ends up in the concept_set_members table
+    rows1 = []
+    for value_set in value_sets:
+        for concept_dict in value_set['ns0:ConceptList']['ns0:Concept']:
+            code = concept_dict['@code']
+            code_system = concept_dict['@codeSystemName']
+            # The 3 fields isExcluded, includeDescendants, and includeMapped, are from OMOP but also in VSAC. If it has
+            # ...these 3 options, it is intensional. And when you execute these 3, it is now extensional / expansion.
+            row = {
+                'codeset_id': oid__codeset_id_map[value_set['@ID']],
+                'concept_id': '',  # leave blank for now
+                # <non-palantir fields>
+                'code': code,
+                'codeSystem': code_system,
+                # </non-palantir fields>
+                'isExcluded': False,
+                'includeDescendants': True,
+                'includeMapped': False,
+                'item_id': str(uuid4()),  # will let palantir verify ID is indeed unique
+                'annotation': 'Generated from VSAC export',
+                # 'created_by': 'DI&H Bulk Import',
+                'created_by': PALANTIR_ENCLAVE_USER_ID_1,
+                'created_at': _datetime_palantir_format()
+            }
+            rows1.append(row)
+    df1 = pd.DataFrame(rows1)
+    all[filename1] = df1
+    _save_csv(df1, filename=filename1, subfolder=google_sheet_name, field_delimiter=field_delimiter)
+
+
+def save_for_palantir_3csv(all: Dict[str, pd.DataFrame]):
+    pass
 
 def get_palantir_csv(
     value_sets: List[OrderedDict], google_sheet_name=None, field_delimiter=',',
@@ -191,7 +235,11 @@ def get_palantir_csv(
     oid__codeset_id_map = {}
     for value_set in value_sets:
         # will let palantir verify ID is indeed unique:
+
+        # TODO: work out with @Amin how we should actually be dealing with codeset set ids --
+        #   we should at least make them larger that the largest existing.
         oid__codeset_id_map[value_set['@ID']] = randint(0, 1000000000)
+
         for concept_dict in value_set['ns0:ConceptList']['ns0:Concept']:
             code = concept_dict['@code']
             code_system = concept_dict['@codeSystemName']
@@ -199,6 +247,10 @@ def get_palantir_csv(
                 codesystem_code__concept_id_map[code_system] = {}
             # will let palantir verify ID is indeed unique:
             codesystem_code__concept_id_map[code_system][code] = randint(0, 1000000000)
+            # @Joe: What is this random number supposed to be? I don't think we have
+            #   reason to be using random numbers in any of this. It's totally confusing --
+            #   someone might try to figure out what it actually references, and it doesn't
+            #   reference anything
 
     # II. Create & save exports
     all = {}
@@ -381,13 +433,7 @@ def run(
             with open(f'{PROJECT_ROOT}/input/oids.txt', 'r') as f:
                 object_ids: List[str] = [oid.rstrip() for oid in f.readlines()]
 
-        # 2. Get VSAC auth ticket
-        tgt: str = get_ticket_granting_ticket()
-        # service_ticket = get_service_ticket(tgt)
-
-        value_sets_dict: OrderedDict = get_value_sets(object_ids, tgt)
-        value_sets: List[OrderedDict] = value_sets_dict['ns0:RetrieveMultipleValueSetsResponse'][
-            'ns0:DescribedValueSet']
+        value_sets: List[OrderedDict] = get_value_sets(object_ids)
 
         with open(pickle_file, 'wb') as handle:
             pickle.dump(value_sets, handle, protocol=pickle.HIGHEST_PROTOCOL)
