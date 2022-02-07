@@ -30,3 +30,4 @@ omop2obo/*
 #################################
 scratch.py
 PALANTIR_ENCLAVE_AUTHENTICATION_BEARER_TOKEN
+env/ENCLAVE.env
