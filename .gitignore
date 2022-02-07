@@ -12,6 +12,7 @@ build/*
 dist/*
 resources/analyses/.DS_Store
 resources/analyses/.ipynb_checkpoints/*
+env/.env
 
 ## testing resources ##
 #################################
@@ -29,5 +30,3 @@ omop2obo/*
 ## scripts ##
 #################################
 scratch.py
-PALANTIR_ENCLAVE_AUTHENTICATION_BEARER_TOKEN
-env/ENCLAVE.env
