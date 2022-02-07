@@ -1,28 +1,31 @@
-# Boilerplate
-__pycache__/
-_archive/
-_dev/
-.idea/
-build/
-dev/
-dist/
-ignored/
-*~$*
-*.DS_Store
+## compiled source/environment ##
+#################################
+.DS_Store
 *.egg-info
-*.swp
-tags
-MANIFEST
+*.exe
+.idea
+.idea/*
+*.pyc
+__pycache__
+.ipynb_checkpoints/*
+build/*
+dist/*
+resources/analyses/.DS_Store
+resources/analyses/.ipynb_checkpoints/*
 
-# Custom
-/*.json
-/*.txt
-cache/*
-!cache/.keep
-vsac_wrangler/data/cache/*
-!vsac_wrangler/data/cache/.keep
-/env/*
-!/env/.env.example
-input/VSAC Values Sets 17Jan22
-junk_was_value_set_vsac_to_json
-old_bash_scripts
+## testing resources ##
+#################################
+*.mypy*
+.coverage*
+coverage.xml
+.notipy.json
+.single_run
+.vscode/
+
+## directories ##
+#################################
+omop2obo/*
+
+## scripts ##
+#################################
+scratch.py
